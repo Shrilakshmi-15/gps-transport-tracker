@@ -1,0 +1,285 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'dart:convert';
+import 'dart:async';
+
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Bus Finder',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Timer(Duration(seconds: 3), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/bus_logo.png', width: 150, height: 150),
+            SizedBox(height: 20),
+            CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class HomePage extends StatelessWidget {
+  final TextEditingController fromController = TextEditingController();
+  final TextEditingController destinationController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.yellow, // Set yellow background
+      appBar: AppBar(
+        title: Text("Bus Finder"),
+        centerTitle: true,
+        backgroundColor: Colors.black, // Black app bar for contrast
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 20), // Space from top
+            TextField(
+              controller: fromController, // Store user input
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white, // White background for input field
+                labelText: "From",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_on, color: Colors.black),
+              ),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: destinationController, // Store user input
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white, // White background for input field
+                labelText: "Destination",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.flag, color: Colors.black),
+              ),
+            ),
+            SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                String from = fromController.text;
+                String destination = destinationController.text;
+
+                if (from.isNotEmpty && destination.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BusListPage(from: from, destination: destination),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Please enter both locations!")),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black, // Black button
+                padding: EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(
+                "Search",
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class BusListPage extends StatelessWidget {
+  final String from;
+  final String destination;
+
+  BusListPage({required this.from, required this.destination});
+
+  // Example static bus list
+  final List<Map<String, String>> buses = [
+    {"name": "Express Bus", "number": "101", "time": "10:00 AM"},
+    {"name": "City Bus", "number": "202", "time": "11:30 AM"},
+    {"name": "Rapid Bus", "number": "303", "time": "1:00 PM"},
+    {"name": "Super Bus", "number": "404", "time": "3:45 PM"},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Available Buses"),
+        backgroundColor: Colors.black,
+      ),
+      backgroundColor: Colors.yellow,
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Buses from $from to $destination",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: buses.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    color: Colors.white,
+                    child: ListTile(
+                      leading: Icon(Icons.directions_bus, color: Colors.black),
+                      title: Text(buses[index]["name"]!, style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("Bus No: ${buses[index]["number"]!} | Time: ${buses[index]["time"]!}"),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BusTrackingPage(busNumber: buses[index]["number"]!),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class BusTrackingPage extends StatefulWidget {
+  final String busNumber;
+
+  BusTrackingPage({required this.busNumber});
+
+  @override
+  _BusTrackingPageState createState() => _BusTrackingPageState();
+}
+
+class _BusTrackingPageState extends State<BusTrackingPage> {
+  double latitude = 0.0;
+  double longitude = 0.0;
+  double speed = 0.0;
+  int seatsAvailable = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchBusData();
+  }
+
+  Future<void> fetchBusData() async {
+    // Replace with your actual API endpoint
+    final response = await http.get(Uri.parse('https://your-server.com/api/bus/${widget.busNumber}'));
+
+    if (response.statusCode == 200) {
+      var data = jsonDecode(response.body);
+      setState(() {
+        latitude = data['latitude'];
+        longitude = data['longitude'];
+        speed = data['speed'];
+        seatsAvailable = data['seats_available'];
+      });
+    } else {
+      print("Failed to fetch data");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Bus Tracking - ${widget.busNumber}"), backgroundColor: Colors.black),
+      body: Column(
+        children: [
+          Expanded(
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: LatLng(latitude, longitude),
+                initialZoom: 15.0,  // ✅ Corrected parameter
+              ),
+
+              children: [
+                TileLayer(
+                  urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  subdomains: ['a', 'b', 'c'],
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: LatLng(latitude, longitude),
+                      width: 40,
+                      height: 40,
+                      child: Icon(Icons.directions_bus, color: Colors.red, size: 40),
+                    )
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Text("Current Speed: ${speed} km/h", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text("Seats Available: $seatsAvailable", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: fetchBusData,
+                  child: Text("Refresh Data"),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

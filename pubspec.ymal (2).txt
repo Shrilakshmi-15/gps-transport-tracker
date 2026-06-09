@@ -1,0 +1,30 @@
+name: farhanproject
+description: A new Flutter project.
+publish_to: "none" # Prevents accidental publishing to pub.dev
+
+# Specify the SDK version required
+environment:
+  sdk: "^3.7.0"
+
+# Flutter dependencies
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2  # Icons for iOS styling
+  http: ^1.3.0
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
+
+# Development dependencies
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0  # Linter for best practices
+
+# Flutter settings
+flutter:
+  uses-material-design: true
+
+  # Assets (Ensure "bus_logo.png" exists in the assets folder)
+  assets:
+    - assets/bus_logo.png
